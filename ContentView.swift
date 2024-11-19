@@ -14,6 +14,31 @@ struct ContentView: View {
     @State private var wrongPassword = 0
     @State private var showingLoginScreen = false
     
+    // Load saved data for user defaults
+    
+    init(){
+        if let savedUsername = UserDefaults.standard.string(forKey: "username"), let savedPassword = UserDefaults.standard.string(forKey: "password") {
+            _username = State(initialValue: savedUsername)
+            _password = State(initialValue: savedPassword)
+            _showingLoginScreen = State(initialValue: true)
+            
+        }
+    }
+    
+    func authenticateUser(username: String, password: String) {
+        if !username.isEmpty && !password.isEmpty {
+            UserDefaults.standard.set(username, forKey: "username")
+            UserDefaults.standard.set(password, forKey: "password")
+
+            showingLoginScreen = true
+            
+            
+        } else {
+            wrongUsername = username.isEmpty ? 1 : 0
+            wrongPassword = password.isEmpty ? 1 : 0
+        }
+    }
+    
     var body: some View {
         NavigationView{
             ZStack {
@@ -45,19 +70,15 @@ struct ContentView: View {
                         .border(.red, width: CGFloat(wrongPassword))
                     
                     Button("Login"){
-                        
+                        authenticateUser(username: username, password: password)
                     }
                     .foregroundColor(.white)
                     .frame(width:300, height: 50)
                     .background(Color.purple)
                     .cornerRadius(10)
                     
-                    NavigationLink(destination: HomeScreen()) {
-                        Text("Click to Navigate")
-                            .frame(width: 300, height:150, alignment: .center)
-                            .background(Color.gray)
-                            .foregroundColor(Color.black)
-                            .cornerRadius(50)
+                    NavigationLink(destination: HomeScreen(), isActive: $showingLoginScreen) {
+                        EmptyView()
                     }
                 }
                 
@@ -65,10 +86,10 @@ struct ContentView: View {
         }
     }
     
-    //func authenticateUser
-    struct ContentView_Previews: PreviewProvider {
-        static var previews: some View {
-            ContentView()
-        }
-    }
+}
+// function for making login work
+
+#Preview {
+    ContentView()
+    
 }
