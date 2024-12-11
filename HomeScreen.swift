@@ -1,11 +1,5 @@
-//
-//  HomeScreen.swift
-//  Tracketeer
-//
-//  Created by Student on 11/12/24.
-//
-
 import SwiftUI
+
 
 struct VolunteerEntry: Identifiable, Codable {
     var id = UUID()
@@ -56,7 +50,7 @@ struct ImagePicker: UIViewControllerRepresentable {
 struct HomeScreen: View {
     @State private var totalHours: Double = 0
     @State private var postText = ""
-    @State private var currentEntry = VolunteerEntry(projectName: "", hours: 0.0, photoData: nil)
+    @State private var newEntry = VolunteerEntry(projectName: "", hours: 0.0, photoData: nil)
     @State private var entries: [VolunteerEntry] = []
     
     // State for image picker
@@ -65,8 +59,8 @@ struct HomeScreen: View {
     
     var body: some View {
         NavigationView {
-            List {
-                VStack {
+            ScrollView {
+                VStack(spacing: 16) {
                     // Circle with total hours
                     ZStack {
                         Circle()
@@ -84,12 +78,12 @@ struct HomeScreen: View {
 
                     // Form for adding new entries
                     VStack {
-                        TextField("Project Name", text: $currentEntry.projectName) // Binding to currentEntry.projectName
+                        TextField("Project Name", text: $newEntry.projectName)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                         
                         TextField("Hours", text: Binding(
-                            get: { String(format: "%.2f", currentEntry.hours) },
-                            set: { if let value = Double($0) { currentEntry.hours = value } }
+                            get: { String(format: "%.2f", newEntry.hours) },
+                            set: { if let value = Double($0) { newEntry.hours = value } }
                         ))
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .keyboardType(.decimalPad)
@@ -98,7 +92,8 @@ struct HomeScreen: View {
                             isImagePickerPresented = true
                         }
                         .padding()
-                        
+
+                        // Display selected image if available
                         if let imageData = selectedImageData, let uiImage = UIImage(data: imageData) {
                             Image(uiImage: uiImage)
                                 .resizable()
@@ -107,31 +102,47 @@ struct HomeScreen: View {
                                 .padding()
                         }
 
-                        Button("Add Entry") {
-                            addEntry()
+                        HStack {
+                            Button("Add Entry") {
+                                addEntry()
+                            }
+                            .padding()
+
+                            Button("Clear Fields") {
+                                clearFields()
+                            }
+                            .padding()
+
+                            Button("Reset All") {
+                                resetAllEntries()
+                            }
+                            .padding()
+                            .foregroundColor(.red)
                         }
-                        .padding()
                     }
                     .padding()
 
                     // List of entries
-                    ForEach(entries) { entry in
-                        HStack {
-                            Text(entry.projectName)
-                            Spacer()
-                            Text("\(entry.hours, specifier: "%.1f") hours")
-                            if let photoData = entry.photoData, let uiImage = UIImage(data: photoData) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 50, height: 50)
+                    LazyVStack(spacing: 10) {
+                        ForEach(entries) { entry in
+                            HStack {
+                                Text(entry.projectName)
+                                Spacer()
+                                Text("\(entry.hours, specifier: "%.1f") hours")
+                                if let photoData = entry.photoData, let uiImage = UIImage(data: photoData) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 50, height: 50)
+                                }
                             }
+                            .padding()
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(8)
                         }
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(8)
                     }
                     .padding(.horizontal)
+                    Spacer(minLength: 0)
                 }
             }
             .navigationTitle("Volunteer Hours")
@@ -145,14 +156,12 @@ struct HomeScreen: View {
     }
     
     private func addEntry() {
-        currentEntry.photoData = selectedImageData // Attach selected photo data to the current entry
-        totalHours += currentEntry.hours
-        entries.append(currentEntry)
-        saveEntries()
-        
-        // Reset current entry after adding
-        currentEntry = VolunteerEntry(projectName: "", hours: 0.0, photoData: nil)
+        newEntry.photoData = selectedImageData // Attach selected photo data to the current entry
+        totalHours += newEntry.hours
+        entries.append(newEntry)
+        newEntry = VolunteerEntry(projectName: "", hours: 0.0, photoData: nil)
         selectedImageData = nil
+        saveEntries()
     }
     
     private func loadEntries() {
@@ -173,8 +182,19 @@ struct HomeScreen: View {
     private func calculateTotalHours() -> Double {
         return entries.reduce(0) { $0 + $1.hours }
     }
+    
+    private func clearFields() {
+        newEntry.projectName = ""
+        newEntry.hours = 0.0
+        selectedImageData = nil
+    }
+    
+    private func resetAllEntries() {
+        entries.removeAll()
+        totalHours = 0.0
+        saveEntries()
+    }
 }
-
 
 struct HomeScreen_Previews: PreviewProvider {
     static var previews: some View {
@@ -182,13 +202,3 @@ struct HomeScreen_Previews: PreviewProvider {
     }
 }
 
-
-extension Double {
-    var asFormattedString: String {
-        return String(format: "%.2f", self)
-    }
-}
-
-#Preview {
-    HomeScreen()
-}
