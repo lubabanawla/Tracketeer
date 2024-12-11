@@ -1,6 +1,7 @@
 import SwiftUI
+import PhotosUI
 
-
+// Define the VolunteerEntry model
 struct VolunteerEntry: Identifiable, Codable {
     var id = UUID()
     var projectName: String
@@ -8,28 +9,40 @@ struct VolunteerEntry: Identifiable, Codable {
     var photoData: Data?
 }
 
+// Image Picker with PHPickerViewController
 struct ImagePicker: UIViewControllerRepresentable {
-    class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+    class Coordinator: NSObject, PHPickerViewControllerDelegate {
         var parent: ImagePicker
-
+        
         init(parent: ImagePicker) {
             self.parent = parent
         }
-
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            if let selectedImage = info[.originalImage] as? UIImage {
-                if let imageData = selectedImage.jpegData(compressionQuality: 0.8) {
-                    parent.selectedImageData = imageData
+        
+        // This method is called when the user selects an image from the photo picker
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            if let result = results.first {
+                // Get the asset from the picker result
+                result.itemProvider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, error in
+                    guard let data = data, error == nil else {
+                        print("Error loading image data: \(String(describing: error))")
+                        return
+                    }
+                    DispatchQueue.main.async {
+                        self.parent.selectedImageData = data
+                        self.parent.isImagePickerPresented = false
+                    }
                 }
+            } else {
+                self.parent.isImagePickerPresented = false
             }
-            parent.isImagePickerPresented = false
         }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.isImagePickerPresented = false
+        
+        // Called when the user cancels the picker
+        func pickerDidCancel(_ picker: PHPickerViewController) {
+            self.parent.isImagePickerPresented = false
         }
     }
-
+    
     @Binding var isImagePickerPresented: Bool
     @Binding var selectedImageData: Data?
 
@@ -37,23 +50,26 @@ struct ImagePicker: UIViewControllerRepresentable {
         return Coordinator(parent: self)
     }
 
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
+    // Make the PHPickerViewController
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.selectionLimit = 1 // Only allow picking one photo
+        config.filter = .images // Only allow images to be selected
+        
+        let picker = PHPickerViewController(configuration: config)
         picker.delegate = context.coordinator
-        picker.sourceType = .photoLibrary // You can change this to .camera if you want to allow taking photos
         return picker
     }
 
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    // Update the view controller (not needed for PHPickerViewController)
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
 }
 
 struct HomeScreen: View {
     @State private var totalHours: Double = 0
-    @State private var postText = ""
     @State private var newEntry = VolunteerEntry(projectName: "", hours: 0.0, photoData: nil)
     @State private var entries: [VolunteerEntry] = []
     
-    // State for image picker
     @State private var isImagePickerPresented: Bool = false
     @State private var selectedImageData: Data? = nil
     
@@ -156,7 +172,7 @@ struct HomeScreen: View {
     }
     
     private func addEntry() {
-        newEntry.photoData = selectedImageData // Attach selected photo data to the current entry
+        newEntry.photoData = selectedImageData
         totalHours += newEntry.hours
         entries.append(newEntry)
         newEntry = VolunteerEntry(projectName: "", hours: 0.0, photoData: nil)
@@ -168,7 +184,7 @@ struct HomeScreen: View {
         if let data = UserDefaults.standard.data(forKey: "entries") {
             if let decodedEntries = try? JSONDecoder().decode([VolunteerEntry].self, from: data) {
                 entries = decodedEntries
-                totalHours = calculateTotalHours() // Update total hours when loading entries
+                totalHours = calculateTotalHours()
             }
         }
     }
